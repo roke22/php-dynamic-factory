@@ -1,0 +1,33 @@
+{
+    "name": "roke22/php-dynamic-factory",
+    "description": "Dynamic factory to create objects reading the parameters of the construct method",
+    "type": "library",
+    "require": {
+        "php": "^7.4",
+        "fakerphp/faker": "^1.14"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Roke\\PhpFactory\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Roke\\PhpFactory\\Tests\\": "tests"
+        }
+    },
+    "authors": [
+        {
+            "name": "Jose Anton",
+            "email": "roke22@gmail.com"
+        }
+    ],
+    "scripts": {
+        "test": "vendor/bin/phpunit tests",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage"
+    }
+}
