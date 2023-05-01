@@ -1,3 +1,7 @@
+<p align="center">
+<a href="https://github.com/roke22/php-dynamic-factory/actions"><img src="https://github.com/roke22/php-dynamic-factory/actions/workflows/php.yml/badge.svg?branch=master" alt="Build Status"></a>
+</p>
+
 # DynamicFactory
 
 DynamicFactory is a PHP class that allows you to create objects with random or pre-defined data. This class uses the Faker library to generate random values and the ReflectionClass to analyze the constructors of the target class.
