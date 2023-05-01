@@ -12,9 +12,9 @@ class DynamicFactory
      * @param string $object
      * @return object
      */
-    public static function create(string $object)
+    public static function create(string $object, array $valuesUser = []): object
     {
-        $arrayValues = self::createDataArray($object);
+        $arrayValues = self::createDataArray($object, $valuesUser);
         return ArrayToObject::make($arrayValues, $object);
     }
 
@@ -24,19 +24,32 @@ class DynamicFactory
      * @param string $object
      * @return array
      */
-    protected static function createDataArray(string $object)
+    protected static function createDataArray(string $object, array $valuesUser): array
     {
         $faker = Factory::create();
         $arrayValues = [];
-        $values = self::getConstructorAnnotations($object);
-        $constructor = self::getConstructorParameters($object, $values);
+        $valuesAnnotations = self::getConstructorAnnotations($object);
+        $constructor = self::getConstructorParameters($object);
         foreach ($constructor->getParameters() as $parameter) {
             $nameParameter = $parameter->getName();
             $typeParameter = $parameter->getType();
 
-            if (isset($values[$nameParameter])) {
-                $randomKey = array_rand($values[$nameParameter]);
-                $arrayValues[$nameParameter] = $values[$nameParameter][$randomKey];
+            if (isset($valuesUser[$nameParameter])) {
+                if (($typeParameter === null) || ($typeParameter !== null && in_array($typeParameter->getName(), ['string', 'int', 'bool', 'float', 'array']))) {
+                    $arrayValues[$nameParameter] = $valuesUser[$nameParameter];
+                    continue;
+                }
+            }
+
+            if (isset($valuesAnnotations['value'][$nameParameter])) {
+                $randomKey = array_rand($valuesAnnotations['value'][$nameParameter]);
+                $arrayValues[$nameParameter] = $valuesAnnotations['value'][$nameParameter][$randomKey];
+                continue;
+            }
+
+            if (isset($valuesAnnotations['faker'][$nameParameter])) {
+                $fakerMethod = "return \$faker->".str_replace("\$faker->", '', $valuesAnnotations["faker"][$nameParameter]).";";
+                $arrayValues[$nameParameter] = eval($fakerMethod);
                 continue;
             }
 
@@ -45,7 +58,7 @@ class DynamicFactory
                 continue;
             }
 
-            $arrayValues[$nameParameter] = self::createDataArray($typeParameter->getName());
+            $arrayValues[$nameParameter] = self::createDataArray($typeParameter->getName(), $valuesUser[$nameParameter] ?? []);
 
         }
         return $arrayValues;
@@ -57,7 +70,7 @@ class DynamicFactory
      * @param string $class
      * @return ?ReflectionMethod
      */
-    protected static function getConstructorParameters(string $class, array $values)
+    protected static function getConstructorParameters(string $class)
     {
         $reflection = new \ReflectionClass($class);
         return $reflection->getConstructor();
@@ -77,17 +90,13 @@ class DynamicFactory
         $docComment = str_replace(['/**', '*/'], '', $docComment);
         $docComment = trim($docComment);
         $docComment = explode("\n", $docComment);
-        $docComment = array_map(function ($item) {
-            //si contiene la palabra @value devuelvo el valor
-            if (strpos($item, '@value') !== false) {
-                return substr(trim(str_replace(['@value', '*'], '', $item)), 1);
-            }
-        }, $docComment);
-        $docComment = array_filter($docComment, function ($item) {
-            return !empty($item);
-        });
-        $docComment = array_values($docComment);
-        return self::constructorAnnotationsAsArray($docComment);
+        $docCommentValue = self::constructorAnnotationsAsArray($docComment, '@value');
+        $docCommentFaker = self::constructorAnnotationsAsArray($docComment, '@faker');
+
+        return [
+            'value' => $docCommentValue,
+            'faker' => $docCommentFaker,
+        ];
     }
 
     /**
@@ -96,17 +105,45 @@ class DynamicFactory
      * @param array $annotations
      * @return array
      */
-    protected static function constructorAnnotationsAsArray(array $annotations)
+    protected static function constructorAnnotationsAsArray(array $docComment, string $typeAnnotation)
     {
         $array = [];
-        foreach ($annotations as $annotation) {
-            $firstSpace = strpos($annotation, ' ');
-            $key = substr($annotation, 0, $firstSpace);
-            $value = substr($annotation, $firstSpace + 1);
-            $array[$key] = eval("return $value;");
+
+        $docComment = array_map(function ($item) use ($typeAnnotation) {
+            if (strpos($item, $typeAnnotation) !== false) {
+                return substr(trim(str_replace([$typeAnnotation, '*'], '', $item)), 1);
+            }
+        }, $docComment);
+
+        foreach ($docComment as $annotation) {
+            try {
+                $firstSpace = strpos($annotation, ' ');
+                $key = substr($annotation, 0, $firstSpace);
+                $value = substr($annotation, $firstSpace + 1);
+                $array[$key] = self::getValueFromDocComment($value, $typeAnnotation);
+            } catch (\Throwable $th) {
+                throw new \Exception("Check the syntax of the annotation for value \"$value\" with annotation: $annotation");
+            }
         }
 
+        $array = array_filter($array, function ($item) {
+            return !empty($item);
+        });
+
         return $array;
+    }
+
+    protected static function getValueFromDocComment(string $lineComment, string $typeAnnotation)
+    {
+        if ($typeAnnotation === '@faker') {
+            return $lineComment;
+        }
+
+        if ($typeAnnotation === '@value') {
+            return eval("return $lineComment;");
+        }
+
+        throw new \Exception("Invalid annotation type \"$typeAnnotation\"");
     }
 
     /**

@@ -1,6 +1,8 @@
 # DynamicFactory
 
-DynamicFactory is a PHP class that allows you to create objects with random or pre-defined data. This class uses the Faker library to generate random values and the ReflectionClass to analyze the constructors of the target class.  
+DynamicFactory is a PHP class that allows you to create objects with random or pre-defined data. This class uses the Faker library to generate random values and the ReflectionClass to analyze the constructors of the target class.
+
+You can use annotations to force the values you want to use in the constructor of the target class. Using "@value" or "@faker" in the doc comment.
 
 ## Installation
 
@@ -10,7 +12,7 @@ Use the package manager [composer](https://getcomposer.org/) to install DynamicF
 composer require roke22/dynamic-factory
 ```
 
-## Usage
+## Basic Usage
 
 ```php
 $object = DynamicFactory::create(Object::class);
@@ -47,6 +49,7 @@ Roke\PhpFactory\Tests\Objects\OneClass)#121 (3) {
 }
 ```
 
+## Using custom values
 You can also specify the values you want to use in a doc comment using the annotation @value.   
 You must use the "@value" follwing with the name of the parameter and the values you want to use in array format.
 For example:
@@ -90,6 +93,42 @@ Roke\PhpFactory\Tests\Objects\OneClass)#121 (3) {
 ```
 
 For a non typed parameter the DynamicFactory will use the default value if it exists. If not, it will use a random value of a random type.
+
+## Using Faker values
+
+Let's force some values using Faker (https://fakerphp.github.io/):
+
+```php
+class OneClass {
+    public $name;
+    public $age;
+    public $email;
+    
+    /**
+     * @faker $name $faker->name
+     * @value $age $faker->randomBetween(20, 50)
+     * @value $email $faker->email
+     */
+    public function __construct(string $name, int $age, string $email) {
+        $this->name = $name;
+        $this->age = $age;
+        $this->email = $email;
+    }
+}
+```
+
+The DynamicFactory will use the faker methods to create the object. For example:
+
+```
+Roke\PhpFactory\Tests\Objects\OneClass)#359 (3) {
+  ["name"]=>
+  string(20) "Willow Romaguera PhD"
+  ["age"]=>
+  int(43)
+  ["email"]=>
+  string(26) "ethel.konopelski@gmail.com"
+}
+```
 
 ## LICENSE
 MIT License
