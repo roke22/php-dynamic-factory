@@ -12,10 +12,12 @@ permissions:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        php-version: '7.4'
 
     - name: Validate composer.json and composer.lock
       run: composer validate --strict
