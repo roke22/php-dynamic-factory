@@ -107,7 +107,7 @@ class CreateObjectTest extends TestCase
         $this->assertEquals(33, $object1->number);
         $this->assertEquals("Blablabla", $object1->string);
         $this->assertEquals([9, 8, 7, 6], $object1->array);
-        $this->assertEquals(false, $object1->bool);
+        $this->assertFalse($object1->bool);
         $this->assertEquals(0.1, $object1->float);
         $this->assertEquals("Just a random phrase", $object1->mixed);
 

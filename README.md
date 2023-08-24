@@ -56,29 +56,29 @@ Roke\PhpFactory\Tests\Objects\OneClass)#121 (3) {
 ## Using custom values
 You can also specify the values you want to use in a doc comment using the annotation @value.   
 You must use the "@value" follwing with the name of the parameter and the values you want to use in array format.
+
+You can use this method for testing purpose extending the class you want to test in your test directory and using the @value annotation to force the values you want to use in the constructor.  
+
+Doing this you are not contaminating the domain of your application with test code.   
+
 For example:
 
 ```
 @value $nameOfValue [2,3,4,5]
 ```
 
-Let's force some values to the previous example:
+Let's force some values extending a class from my domain:
 
 ```php
-class OneClass {
-    public $name;
-    public $age;
-    public $email;
-    
+class MyTestClass extends ClassInDomain {
+
     /**
      * @value $name ['Rachel', 'Mario', 'John', 'Peter']
      * @value $age [22, 36, 45]
      * @value $email ['my@email.com', 'email@yahoo.com', 'support@company.com']
      */
     public function __construct(string $name, int $age, string $email) {
-        $this->name = $name;
-        $this->age = $age;
-        $this->email = $email;
+        parent::__construct($name, $age, $email);
     }
 }
 ```
