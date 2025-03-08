@@ -3,7 +3,7 @@
     "description": "Dynamic factory to create objects reading the parameters of the construct method",
     "type": "library",
     "require": {
-        "php": "^7.4",
+        "php": "^7.4||^8.0",
         "fakerphp/faker": "^1.14"
     },
     "require-dev": {
