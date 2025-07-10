@@ -48,8 +48,36 @@ class DynamicFactory
             }
 
             if (isset($valuesAnnotations['faker'][$nameParameter])) {
-                $fakerMethod = "return \$faker->".str_replace("\$faker->", '', $valuesAnnotations["faker"][$nameParameter]).";";
-                $arrayValues[$nameParameter] = eval($fakerMethod);
+                $fakerProvider = $valuesAnnotations['faker'][$nameParameter];
+
+                // Remove optional $faker-> prefix for compatibility
+                if (strpos($fakerProvider, '$faker->') === 0) {
+                    $fakerProvider = substr($fakerProvider, strlen('$faker->'));
+                }
+
+                if (preg_match('/^([a-zA-Z0-9_]+)\((.*)\)$/', $fakerProvider, $matches)) {
+                    // It's a method call, like "name()" or "randomElement(['a', 'b'])"
+                    $method = $matches[1];
+                    $argsStr = $matches[2];
+                    $args = [];
+                    if (!empty($argsStr)) {
+                        // WARNING: Still uses eval, but in a more controlled way for arguments.
+                        $args = eval('return [' . $argsStr . '];');
+                    }
+
+                    if (!is_callable([$faker, $method])) {
+                        throw new \Exception("Invalid faker method: '$method'. Please check your '@faker' annotation.");
+                    }
+                    $arrayValues[$nameParameter] = call_user_func_array([$faker, $method], $args);
+
+                } else {
+                    // It's a property access, like "name"
+                    try {
+                        $arrayValues[$nameParameter] = $faker->{$fakerProvider};
+                    } catch (\Throwable $e) {
+                        throw new \Exception("Invalid faker provider: '$fakerProvider'. Please check your '@faker' annotation.");
+                    }
+                }
                 continue;
             }
 
@@ -68,7 +96,7 @@ class DynamicFactory
      * Metodo para obtener un array de los parametros que tiene el constructor de la clase
      *
      * @param string $class
-     * @return ?ReflectionMethod
+     * @return ?\ReflectionMethod
      */
     protected static function getConstructorParameters(string $class)
     {
@@ -102,7 +130,7 @@ class DynamicFactory
     /**
      * Metodo para convertir un array de anotaciones en un array asociativo
      *
-     * @param array $annotations
+     * @param array $docComment
      * @return array
      */
     protected static function constructorAnnotationsAsArray(array $docComment, string $typeAnnotation)

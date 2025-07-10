@@ -1,160 +1,189 @@
-<p align="center">
-<a href="https://github.com/roke22/php-dynamic-factory/actions"><img src="https://github.com/roke22/php-dynamic-factory/actions/workflows/php.yml/badge.svg?branch=master" alt="Build Status"></a>
-</p>
+# PHP Dynamic Factory
 
-# DynamicFactory
+[![PHP Tests](https://github.com/roke22/php-dynamic-factory/actions/workflows/php.yml/badge.svg)](https://github.com/roke22/php-dynamic-factory/actions/workflows/php.yml)
 
-DynamicFactory is a PHP class that allows you to create objects with random or pre-defined data. This class uses the Faker library to generate random values and the ReflectionClass to analyze the constructors of the target class.
+A simple and powerful PHP library to dynamically create objects from arrays. It intelligently maps array keys to your class constructor parameters, saving you from writing repetitive boilerplate code.
 
-You can use annotations to force the values you want to use in the constructor of the target class. Using "@value" or "@faker" in the doc comment.
+Its main strengths are:
+-   Automatic `snake_case` to `camelCase` conversion, ideal for creating objects from database records or API responses.
+-   Recursive creation of nested objects and arrays of objects.
+-   A `DynamicFactory` capable of generating objects with random data for testing (using Faker).
 
 ## Installation
 
-Use the package manager [composer](https://getcomposer.org/) to install DynamicFactory.
+Install the library via Composer:
 
 ```bash
-composer require roke22/dynamic-factory
+composer require roke22/php-dynamic-factory
 ```
 
-## Basic Usage
+## `ArrayToObject`: Creating Objects from Arrays
+
+This is the core of the library. It allows you to build an object by providing its class name and an array of data.
+
+### Basic Usage (Default `snake_case`)
+
+By default, the library assumes your input array keys are in `snake_case` and converts them to the `camelCase` expected by your constructor parameters. This is the most common use case.
+
+**Example:**
+
+Let's say you have a `User` class:
 
 ```php
-$object = DynamicFactory::create(Object::class);
-```
+class User
+{
+    public string $userName;
+    public string $userEmail;
 
-Where Object is the class you want to instantiate. You need to type the parameters of the constructor of the target class.   
-
-For example:
-    
-```php
-class OneClass {
-    public $name;
-    public $age;
-    public $email;
-    
-    public function __construct(string $name, int $age, string $email) {
-        $this->name = $name;
-        $this->age = $age;
-        $this->email = $email;
+    public function __construct(string $userName, string $userEmail)
+    {
+        $this->userName = $userName;
+        $this->userEmail = $userEmail;
     }
 }
 ```
 
-The result of the previous code will be an instance of Object with random values for each property. For example:
-
-```
-Roke\PhpFactory\Tests\Objects\OneClass)#121 (3) {
-  ["name"]=>
-  string(8) "repellat"
-  ["age"]=>
-  int(6)
-  ["email"]=>
-  string(9) "quibusdam"
-}
-```
-
-## Using custom values
-You can also specify the values you want to use in a doc comment using the annotation @value.   
-You must use the "@value" follwing with the name of the parameter and the values you want to use in array format.
-
-You can use this method for testing purpose extending the class you want to test in your test directory and using the @value annotation to force the values you want to use in the constructor.  
-
-Doing this you are not contaminating the domain of your application with test code.   
-
-For example:
-
-```
-@value $nameOfValue [2,3,4,5]
-```
-
-Let's force some values extending a class from my domain:
+And you have data from a database or an API:
 
 ```php
-class MyTestClass extends ClassInDomain {
+$userData = [
+    'user_name' => 'John Doe',
+    'user_email' => 'john.doe@example.com'
+];
+```
+
+You can create the `User` object with a single line:
+
+```php
+use Roke\PhpFactory\ArrayToObject;
+
+$user = ArrayToObject::make($userData, User::class);
+
+// $user is now a User object with properties:
+// $user->userName = 'John Doe';
+// $user->userEmail = 'john.doe@example.com';
+```
+
+### Handling `camelCase` Input
+
+If your input data is already in `camelCase`, you must specify it explicitly.
+
+```php
+use Roke\PhpFactory\ArrayToObject;
+
+$userData = [
+    'userName' => 'Jane Doe',
+    'userEmail' => 'jane.doe@example.com'
+];
+
+// Explicitly state the input format
+$user = ArrayToObject::make($userData, User::class, ArrayToObject::CAMEL);
+```
+
+### Advanced Usage: Nested Objects
+
+The library automatically handles complex, nested objects and even arrays of objects. It reads your constructor's type hints and `@param` annotations to resolve dependencies.
+
+**Example:**
+
+Consider this complex structure:
+
+```php
+// Garage.php
+class Garage {
+    public function __construct(string $location, Car $mainCar) { /* ... */ }
+}
+
+// Car.php
+class Car {
+    /** @param Wheel[] $wheels */
+    public function __construct(string $modelName, Engine $engine, array $wheels) { /* ... */ }
+}
+
+// Engine.php
+class Engine {
+    public function __construct(float $liters, int $cylinders) { /* ... */ }
+}
+
+// Wheel.php
+class Wheel {
+    public function __construct(int $size, string $brand) { /* ... */ }
+}
+```
+*Note: For arrays of objects, you must use the fully qualified class name in the `@param` annotation, e.g., `@param array<\Your\Namespace\Wheel> $wheels`.*
+
+You can build the entire `Garage` object from a single nested array:
+
+```php
+$garageData = [
+    'location' => 'Main Base',
+    'main_car' => [
+        'model_name' => 'Z-2000',
+        'engine' => [
+            'liters' => 6.2,
+            'cylinders' => 8,
+        ],
+        'wheels' => [
+            ['size' => 18, 'brand' => 'BrandA'],
+            ['size' => 18, 'brand' => 'BrandB'],
+        ],
+    ],
+];
+
+$garage = ArrayToObject::make($garageData, Garage::class);
+
+// $garage is now a fully hydrated object with a Car, which has an Engine and an array of Wheels.
+```
+
+## `DynamicFactory`: Generating Test Data
+
+For testing, you can instantly create objects with random data powered by [Faker](https://github.com/fakerphp/faker).
+
+### Basic Usage
+
+```php
+use Roke\PhpFactory\DynamicFactory;
+
+// Creates a User object with random name and email
+$randomUser = DynamicFactory::create(User::class);
+```
+
+### Overriding Attributes
+
+You can provide specific values for some fields while letting the factory generate the rest.
+
+```php
+$userWithSpecificName = DynamicFactory::create(User::class, [
+    'userName' => 'A specific name'
+]);
+
+// $userWithSpecificName->userName will be 'A specific name'
+// $userWithSpecificName->userEmail will be a random email
+```
+
+### Advanced Faker and Value Annotations
+
+You can control the data generation process using `@faker` and `@value` annotations in your class constructor's DocComment.
+
+```php
+class Product
+{
+    public string $name;
+    public string $category;
+    public int $price;
 
     /**
-     * @value $name ['Rachel', 'Mario', 'John', 'Peter']
-     * @value $age [22, 36, 45]
-     * @value $email ['my@email.com', 'email@yahoo.com', 'support@company.com']
+     * @value $category ["electronics", "books", "home"]
+     * @faker $price $faker->numberBetween(100, 1000)
      */
-    public function __construct(string $name, int $age, string $email) {
-        parent::__construct($name, $age, $email);
+    public function __construct(string $name, string $category, int $price)
+    {
+        // ...
     }
 }
+
+$product = DynamicFactory::create(Product::class);
+
+// $product->category will be one of the specified values.
+// $product->price will be a random number between 100 and 1000.
 ```
-
-The DynamicFactory will use these values to create the object. For example:
-
-```
-Roke\PhpFactory\Tests\Objects\OneClass)#121 (3) {
-  ["name"]=>
-  string(4) "John"
-  ["age"]=>
-  int(36)
-  ["email"]=>
-  string(19) "support@company.com"
-}
-```
-
-For a non typed parameter the DynamicFactory will use the default value if it exists. If not, it will use a random value of a random type.
-
-## Using Faker values
-
-Let's force some values using Faker (https://fakerphp.github.io/):
-
-```php
-class OneClass {
-    public $name;
-    public $age;
-    public $email;
-    
-    /**
-     * @faker $name $faker->name
-     * @value $age $faker->randomBetween(20, 50)
-     * @value $email $faker->email
-     */
-    public function __construct(string $name, int $age, string $email) {
-        $this->name = $name;
-        $this->age = $age;
-        $this->email = $email;
-    }
-}
-```
-
-The DynamicFactory will use the faker methods to create the object. For example:
-
-```
-Roke\PhpFactory\Tests\Objects\OneClass)#359 (3) {
-  ["name"]=>
-  string(20) "Willow Romaguera PhD"
-  ["age"]=>
-  int(43)
-  ["email"]=>
-  string(26) "ethel.konopelski@gmail.com"
-}
-```
-
-## LICENSE
-MIT License
-
-Copyright (c) [year] [fullname]
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON INFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-

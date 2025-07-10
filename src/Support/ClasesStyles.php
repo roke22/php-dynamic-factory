@@ -5,64 +5,49 @@ namespace Roke\PhpFactory\Support;
 class ClasesStyles
 {
     /**
-     * Transform to snake case
+     * Transform keys to snake_case.
      *
      * @param array $array Array data to transform
-     * @return array Array transformed
+     * @return array Array with transformed keys
      */
-    public static function snake(array $array)
+    public static function snake(array $array): array
     {
+        $newArray = [];
         foreach ($array as $index => $element) {
-            $array[Str::snake($index)] = $element;
+            $newArray[Str::snake((string) $index)] = $element;
         }
-
-        return $array;
+        return $newArray;
     }
 
     /**
-     * Transform to camel case
+     * Transform keys to camelCase.
      *
      * @param array $array Array data to transform
-     * @return array Array transformed
+     * @return array Array with transformed keys
      */
-    public static function camel(array $array)
+    public static function camel(array $array): array
     {
+        $newArray = [];
         foreach ($array as $index => $element) {
-            $array[Str::camel($index)] = $element;
+            $newArray[Str::camel((string) $index)] = $element;
         }
-
-        return $array;
+        return $newArray;
     }
 
     /**
-     * Transform to snake case
+     * Transform keys to StudlyCase.
      *
      * @param array $array Array data to transform
-     * @return array Array transformed
+     * @return array Array with transformed keys
      */
-    public static function studly(array $array)
+    public static function studly(array $array): array
     {
+        $newArray = [];
         foreach ($array as $index => $element) {
-            $array[Str::studly($index)] = $element;
+            $newArray[Str::studly((string) $index)] = $element;
         }
-
-        return $array;
+        return $newArray;
     }
 
-    /**
-     * Transform to snake case
-     *
-     * @param array $array Array data to transform
-     * @return array Array transformed
-     */
-    public static function allCases(array $array)
-    {
-        foreach ($array as $index => $element) {
-            $array[Str::snake($index)] = $element;
-            $array[Str::camel($index)] = $element;
-            $array[Str::studly($index)] = $element;
-        }
-
-        return $array;
-    }
+    
 }
