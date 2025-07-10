@@ -73,7 +73,7 @@ class ArrayToObject
         foreach ($constructor->getParameters() as $parameter) {
             $paramName = $parameter->getName();
             $paramType = $parameter->getType();
-            $paramTypeName = $paramType ? $paramType->getName() : null;
+            $paramTypeName = self::getParameterTypeName($paramType);
 
             $value = $normalizedData[$paramName] ?? null;
 
@@ -143,7 +143,7 @@ class ArrayToObject
      */
     protected static function convertValueToType($value, ?string $typeName, bool $allowsNull)
     {
-        // Si el valor es null y se permite null, retornar null
+        // CRÍTICO: Si el valor es null y se permite null, retornar null inmediatamente
         if ($value === null && $allowsNull) {
             return null;
         }
@@ -153,39 +153,120 @@ class ArrayToObject
             return $value;
         }
 
-        // Conversiones de tipos específicas
+        // Conversiones de tipos específicas mejoradas
         switch ($typeName) {
             case 'int':
-                return is_numeric($value) ? (int) $value : ($allowsNull ? null : 0);
+                if (is_int($value)) {
+                    return $value;
+                }
+                if (is_numeric($value)) {
+                    return (int) $value;
+                }
+                if (is_string($value) && is_numeric($value)) {
+                    return (int) $value;
+                }
+                if (is_bool($value)) {
+                    return $value ? 1 : 0;
+                }
+                return $allowsNull ? null : 0;
             
             case 'float':
-                return is_numeric($value) ? (float) $value : ($allowsNull ? null : 0.0);
+                if (is_float($value)) {
+                    return $value;
+                }
+                if (is_numeric($value)) {
+                    return (float) $value;
+                }
+                if (is_string($value) && is_numeric($value)) {
+                    return (float) $value;
+                }
+                return $allowsNull ? null : 0.0;
             
             case 'bool':
                 if (is_bool($value)) {
                     return $value;
                 }
-                if (is_numeric($value)) {
-                    return (bool) $value;
+                if (is_int($value)) {
+                    return $value !== 0;
                 }
                 if (is_string($value)) {
-                    return in_array(strtolower($value), ['true', '1', 'yes', 'on']);
+                    $lower = strtolower(trim($value));
+                    if (in_array($lower, ['true', '1', 'yes', 'on', 'active'])) {
+                        return true;
+                    }
+                    if (in_array($lower, ['false', '0', 'no', 'off', 'inactive', ''])) {
+                        return false;
+                    }
+                    // Para strings numéricos
+                    if (is_numeric($value)) {
+                        return (float) $value !== 0.0;
+                    }
                 }
                 return $allowsNull ? null : false;
             
             case 'string':
-                return is_string($value) ? $value : ($value !== null ? (string) $value : ($allowsNull ? null : ''));
+                if (is_string($value)) {
+                    return $value;
+                }
+                if ($value === null) {
+                    return $allowsNull ? null : '';
+                }
+                if (is_scalar($value)) {
+                    return (string) $value;
+                }
+                if (is_array($value) || is_object($value)) {
+                    return $allowsNull ? null : '';
+                }
+                return $allowsNull ? null : '';
             
             case 'array':
                 if (is_array($value)) {
                     return $value;
                 }
-                // Si el valor no es un array pero el tipo esperado es array, convertir a null si se permite
+                if (is_string($value) && !empty($value)) {
+                    // Intentar decodificar JSON
+                    $decoded = json_decode($value, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        return $decoded;
+                    }
+                }
                 return $allowsNull ? null : [];
             
             default:
                 // Para tipos desconocidos, retornar el valor tal como está
                 return $value;
         }
+    }
+
+    /**
+     * Gets the parameter type name, handling Union types like ?string
+     *
+     * @param \ReflectionType|null $paramType
+     * @return string|null
+     */
+    protected static function getParameterTypeName(?\ReflectionType $paramType): ?string
+    {
+        if ($paramType === null) {
+            return null;
+        }
+
+        // Handle Union types (like ?string which is string|null)
+        if ($paramType instanceof \ReflectionUnionType) {
+            $types = $paramType->getTypes();
+            foreach ($types as $type) {
+                if ($type->getName() !== 'null') {
+                    return $type->getName();
+                }
+            }
+            return null;
+        }
+
+        // Handle Named types (like string, int, float, etc.)
+        if ($paramType instanceof \ReflectionNamedType) {
+            return $paramType->getName();
+        }
+
+        // Fallback for other types
+        return (string) $paramType;
     }
 }

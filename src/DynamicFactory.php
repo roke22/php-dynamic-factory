@@ -34,7 +34,8 @@ class DynamicFactory
             $nameParameter = $parameter->getName();
             $typeParameter = $parameter->getType();
 
-            if (isset($valuesUser[$nameParameter])) {
+            // CRÍTICO: Usar array_key_exists en lugar de isset para permitir valores NULL
+            if (array_key_exists($nameParameter, $valuesUser)) {
                 if (($typeParameter === null) || ($typeParameter !== null && in_array($typeParameter->getName(), ['string', 'int', 'bool', 'float', 'array']))) {
                     $arrayValues[$nameParameter] = $valuesUser[$nameParameter];
                     continue;
