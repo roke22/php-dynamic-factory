@@ -104,7 +104,8 @@ class ArrayToObject
             } elseif ($paramTypeName && class_exists($paramTypeName) && is_array($value)) {
                 $params[] = self::make($value, $paramTypeName, $fromCase);
             } else {
-                $params[] = $value;
+                // Aplicar conversión de tipos explícita
+                $params[] = self::convertValueToType($value, $paramTypeName, $parameter->allowsNull());
             }
         }
         return $params;
@@ -130,5 +131,61 @@ class ArrayToObject
         }
 
         return null;
+    }
+
+    /**
+     * Converts a value to the expected type.
+     *
+     * @param mixed $value The value to convert.
+     * @param string|null $typeName The expected type name.
+     * @param bool $allowsNull Whether the parameter allows null values.
+     * @return mixed The converted value.
+     */
+    protected static function convertValueToType($value, ?string $typeName, bool $allowsNull)
+    {
+        // Si el valor es null y se permite null, retornar null
+        if ($value === null && $allowsNull) {
+            return null;
+        }
+
+        // Si no hay tipo especificado, retornar el valor tal como está
+        if ($typeName === null) {
+            return $value;
+        }
+
+        // Conversiones de tipos específicas
+        switch ($typeName) {
+            case 'int':
+                return is_numeric($value) ? (int) $value : ($allowsNull ? null : 0);
+            
+            case 'float':
+                return is_numeric($value) ? (float) $value : ($allowsNull ? null : 0.0);
+            
+            case 'bool':
+                if (is_bool($value)) {
+                    return $value;
+                }
+                if (is_numeric($value)) {
+                    return (bool) $value;
+                }
+                if (is_string($value)) {
+                    return in_array(strtolower($value), ['true', '1', 'yes', 'on']);
+                }
+                return $allowsNull ? null : false;
+            
+            case 'string':
+                return is_string($value) ? $value : ($value !== null ? (string) $value : ($allowsNull ? null : ''));
+            
+            case 'array':
+                if (is_array($value)) {
+                    return $value;
+                }
+                // Si el valor no es un array pero el tipo esperado es array, convertir a null si se permite
+                return $allowsNull ? null : [];
+            
+            default:
+                // Para tipos desconocidos, retornar el valor tal como está
+                return $value;
+        }
     }
 }
